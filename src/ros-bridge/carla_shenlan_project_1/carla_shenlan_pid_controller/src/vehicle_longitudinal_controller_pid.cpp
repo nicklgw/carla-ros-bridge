@@ -35,6 +35,8 @@ VehicleControlPublisher::VehicleControlPublisher()
     controller_frequency = 100;
     qos = 10;
 
+
+
     // vehicle_control_iteration_timer_ = this->create_wall_timer(100ms, std::bind(&VehicleControlPublisher::VehicleControlIterationCallback, this));    // 10ms根据 100Hz换算得到
     carla_status_subscriber = this->create_subscription<carla_msgs::msg::CarlaStatus>("/carla/status", qos, std::bind(&VehicleControlPublisher::VehicleControlIterationCallback, this, _1));
 
@@ -47,7 +49,7 @@ VehicleControlPublisher::VehicleControlPublisher()
     control_cmd.reverse = false;
     control_cmd.hand_brake = false;
 
-    vehicle_control_manual_override_publisher = this->create_publisher<std_msgs::msg::Bool>("/carla/ego_vehicle/vehicle_control_manual_override", 10);
+    vehicle_control_manual_override_publisher = this->create_publisher<std_msgs::msg::Bool>("/carla/ego_vehicle/vehicle_control_manual_override", rclcpp::QoS(10).reliable().transient_local());
     vehicle_control_manual_override.data = true;
 
     vehicle_control_manual_override_publisher->publish(vehicle_control_manual_override);

@@ -104,7 +104,7 @@ class ShenlanControl(object):
         self.get_vehicle_info = get_vehicle_info
         self.node = node
         
-        self.flag_temp = 10
+        self.flag_temp = 20
 
         # self._autopilot_enabled = False
         self._control = CarlaEgoVehicleControl()
