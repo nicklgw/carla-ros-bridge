@@ -66,7 +66,7 @@ def generate_launch_description():
         ),
         launch.actions.DeclareLaunchArgument(
             name='spawn_point',
-            default_value='127.4,-195.4,2,0,0,180'
+            default_value='325,-195.4,2,0,0,180'
         ),
         launch.actions.DeclareLaunchArgument(
             name='target_speed',
@@ -121,7 +121,7 @@ def generate_launch_description():
         launch.actions.IncludeLaunchDescription(
             launch.launch_description_sources.PythonLaunchDescriptionSource(
                 os.path.join(get_package_share_directory(
-                    'carla_manual_control'), 'carla_manual_control.launch.py')
+                    'carla_shenlan_project_1_pid'), 'reference_line_recorder.launch.py')
             ),
             launch_arguments={
                 'role_name': launch.substitutions.LaunchConfiguration('role_name')
