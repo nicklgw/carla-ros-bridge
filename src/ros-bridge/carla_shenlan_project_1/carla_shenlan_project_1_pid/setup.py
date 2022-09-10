@@ -24,6 +24,7 @@ setup(
         'console_scripts': [
             'longitudinal_control_pid = carla_shenlan_project_1_pid.longitudinal_control_pid:main',
             'reference_line_recorder = carla_shenlan_project_1_pid.reference_line_recorder:main',
+            'carla_shenlan_vis_ego_vehicle = carla_shenlan_project_1_pid.carla_shenlan_vis_ego_vehicle:main',
         ],
     },
 )
