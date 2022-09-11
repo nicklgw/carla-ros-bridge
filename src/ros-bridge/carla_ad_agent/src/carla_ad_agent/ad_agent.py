@@ -165,7 +165,7 @@ class CarlaAdAgent(Agent):
             if light_state:
                 self._state = AgentState.BLOCKED_RED_LIGHT
                 hazard_detected = True
-
+        self.loginfo("bbbb")
         speed_command = Float64()
         if hazard_detected:
             speed_command.data = 0.0

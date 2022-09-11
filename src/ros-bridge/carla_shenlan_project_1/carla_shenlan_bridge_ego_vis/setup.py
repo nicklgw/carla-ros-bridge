@@ -1,7 +1,7 @@
 from setuptools import setup
 import os
 from glob import glob
-package_name = 'carla_shenlan_project_1_pid'
+package_name = 'carla_shenlan_bridge_ego_vis'
 
 setup(
     name=package_name,
@@ -22,9 +22,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'longitudinal_control_pid = carla_shenlan_project_1_pid.longitudinal_control_pid:main',
-            'reference_line_recorder = carla_shenlan_project_1_pid.reference_line_recorder:main',
-            'carla_shenlan_vis_ego_vehicle = carla_shenlan_project_1_pid.carla_shenlan_vis_ego_vehicle:main',
+            'longitudinal_control_pid = carla_shenlan_bridge_ego_vis.longitudinal_control_pid:main',
+            'reference_line_recorder = carla_shenlan_bridge_ego_vis.reference_line_recorder:main',
+            'carla_shenlan_vis_ego_vehicle = carla_shenlan_bridge_ego_vis.carla_shenlan_vis_ego_vehicle:main',
         ],
     },
 )

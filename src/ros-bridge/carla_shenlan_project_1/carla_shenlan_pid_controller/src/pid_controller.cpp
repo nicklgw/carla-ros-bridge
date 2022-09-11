@@ -23,9 +23,10 @@ double PIDController::Control(const double error, const double dt) {
     double integral_part = 0;
     double derivative_part = 0;
     double current_output;
+
     if (!first_hit_) {
         first_hit_ = false;
-        proportional_part = kp_ * error;
+        proportional_part = error;
         integral_part += error * dt;
         derivative_part = 0;
     } else {
@@ -33,10 +34,19 @@ double PIDController::Control(const double error, const double dt) {
         integral_part += error * dt;
         derivative_part = (error - previous_error_) / dt;
     }
+
+    // 积分限幅
+    if (integral_part > 40.0){
+        integral_part = 40.0;
+    }
+    if (integral_part < -40.0){
+        integral_part = -40.0;
+    }
+
     current_output = kp_ * proportional_part + ki_ * integral_part + kd_ * derivative_part;
 
     previous_error_ = error;
-    previous_output_ = current_output;
+    // previous_output_ = current_output;
 
     return current_output;
 }

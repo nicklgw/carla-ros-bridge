@@ -12,7 +12,7 @@ def generate_launch_description():
             default_value='ego_vehicle'
         ),
         launch_ros.actions.Node(
-            package='carla_shenlan_project_1_pid',
+            package='carla_shenlan_bridge_ego_vis',
             executable='longitudinal_control_pid',
             name=['longitudinal_control_pid_', launch.substitutions.LaunchConfiguration('role_name')],
             output='screen',

@@ -23,7 +23,8 @@ public:
 
     void odomCallback(nav_msgs::msg::Odometry::SharedPtr msg);
 
-    void VehicleControlIterationCallback(carla_msgs::msg::CarlaStatus::SharedPtr msg); // 收到仿真器返回的状态后，产生控制信号
+    void VehicleControlIterationCallback(); // 收到仿真器返回的状态后，产生控制信号
+    // void VehicleControlIterationCallback(carla_msgs::msg::CarlaStatus::SharedPtr msg); // 收到仿真器返回的状态后，产生控制信号
 
 public:
     double V_set_;

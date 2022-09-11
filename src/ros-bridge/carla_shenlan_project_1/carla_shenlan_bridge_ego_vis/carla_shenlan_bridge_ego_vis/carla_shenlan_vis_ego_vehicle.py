@@ -97,16 +97,17 @@ class CSVHandler():
         print(file_name)
         self.csv_file = open(file_name, 'w')
         # create the csv writer
-        fields = ['counter', 'timestamp','longtitude', 'latitude', 'yaw'] 
+        fields = ['counter', 'timestamp', 'x(m)', 'y(m)', 'z(m)', 'yaw(°)', 'velocity(km/h)']
         self.csv_wirter = csv.writer(self.csv_file)
         self.csv_wirter.writerow(fields)
         self.csv_counter=0
     ## for save_csv begin
-    def wirte_csv(self,longtitude,latitude,yaw,):
-        ts=time.time_ns()
-        mydict=[self.csv_counter,ts,longtitude,latitude,yaw]
-        self.csv_counter=self.csv_counter+1
-        self.csv_wirter.writerow(mydict) 
+    def wirte_csv(self, longtitude, latitude, yaw, height, velocity):
+        # ts = time.time_ns()
+        ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        mydict = [self.csv_counter, ts, longtitude, latitude, yaw, height, velocity]
+        self.csv_counter = self.csv_counter + 1
+        self.csv_wirter.writerow(mydict)
     ## for save_csv end  
     def close_csv(self):
         self.csv_file.close()
@@ -199,24 +200,56 @@ class KeyboardControl(object):
         self.hud = hud
         self.node = node
 
+        self._autopilot_enabled = False
+        self._control = CarlaEgoVehicleControl()
+        self._steer_cache = 0.0
 
-        self.set_vehicle_control_manual_override(True)  # disable manual override
+        fast_qos = QoSProfile(depth=10)
+        fast_latched_qos = QoSProfile(depth=10, durability=DurabilityPolicy.TRANSIENT_LOCAL)
+
+        self.vehicle_control_manual_override_publisher = self.node.new_publisher(
+            Bool,
+            "/carla/{}/vehicle_control_manual_override".format(self.role_name),
+            qos_profile=fast_latched_qos)
+
+        self.vehicle_control_manual_override = False
+
+        self.auto_pilot_enable_publisher = self.node.new_publisher(
+            Bool,
+            "/carla/{}/enable_autopilot".format(self.role_name),
+            qos_profile=fast_qos)
+
+        self.vehicle_control_publisher = self.node.new_publisher(
+            CarlaEgoVehicleControl,
+            "/carla/{}/vehicle_control_cmd_manual".format(self.role_name),
+            qos_profile=fast_qos)
+
+        self.carla_status_subscriber = self.node.new_subscription(
+            CarlaStatus,
+            "/carla/status",
+            self._on_new_carla_frame,
+            qos_profile=10)
+
+        self.set_autopilot(self._autopilot_enabled)
+
+        self.set_vehicle_control_manual_override(
+            self.vehicle_control_manual_override)  # disable manual override
 
     def set_vehicle_control_manual_override(self, enable):
         """
         Set the manual control override
         """
         self.hud.notification('Set vehicle control manual override to: {}'.format(enable))
+        self.vehicle_control_manual_override_publisher.publish((Bool(data=enable)))
 
-
-    # def set_autopilot(self, enable):
-    #     """
-    #     enable/disable the autopilot
-    #     """
-    #     self.auto_pilot_enable_publisher.publish(Bool(data=enable))
+    def set_autopilot(self, enable):
+        """
+        enable/disable the autopilot
+        """
+        self.auto_pilot_enable_publisher.publish(Bool(data=enable))
 
     # pylint: disable=too-many-branches
-    def parse_events(self, vehicle_control_info):
+    def parse_events(self, clock):
         """
         parse an input event
         """
@@ -231,6 +264,58 @@ class KeyboardControl(object):
                 elif event.key == K_h or (event.key == K_SLASH and
                                           pygame.key.get_mods() & KMOD_SHIFT):
                     self.hud.help.toggle()
+                elif event.key == K_b:
+                    self.vehicle_control_manual_override = not self.vehicle_control_manual_override
+                    self.set_vehicle_control_manual_override(self.vehicle_control_manual_override)
+                if event.key == K_q:
+                    self._control.gear = 1 if self._control.reverse else -1
+                elif event.key == K_m:
+                    self._control.manual_gear_shift = not self._control.manual_gear_shift
+                    self.hud.notification(
+                        '%s Transmission' %
+                        ('Manual' if self._control.manual_gear_shift else 'Automatic'))
+                elif self._control.manual_gear_shift and event.key == K_COMMA:
+                    self._control.gear = max(-1, self._control.gear - 1)
+                elif self._control.manual_gear_shift and event.key == K_PERIOD:
+                    self._control.gear = self._control.gear + 1
+                elif event.key == K_p:
+                    self._autopilot_enabled = not self._autopilot_enabled
+                    self.set_autopilot(self._autopilot_enabled)
+                    self.hud.notification('Autopilot %s' %
+                                          ('On' if self._autopilot_enabled else 'Off'))
+        if not self._autopilot_enabled and self.vehicle_control_manual_override:
+            self._parse_vehicle_keys(pygame.key.get_pressed(), clock.get_time())
+            self._control.reverse = self._control.gear < 0
+
+    def _on_new_carla_frame(self, data):
+        """
+        callback on new frame
+
+        As CARLA only processes one vehicle control command per tick,
+        send the current from within here (once per frame)
+        """
+        if not self._autopilot_enabled and self.vehicle_control_manual_override:
+            try:
+                self.vehicle_control_publisher.publish(self._control)
+            except Exception as error:
+                self.node.logwarn("Could not send vehicle control: {}".format(error))
+
+    def _parse_vehicle_keys(self, keys, milliseconds):
+        """
+        parse key events
+        """
+        self._control.throttle = 1.0 if keys[K_UP] or keys[K_w] else 0.0
+        steer_increment = 5e-4 * milliseconds
+        if keys[K_LEFT] or keys[K_a]:
+            self._steer_cache -= steer_increment
+        elif keys[K_RIGHT] or keys[K_d]:
+            self._steer_cache += steer_increment
+        else:
+            self._steer_cache = 0.0
+        self._steer_cache = min(0.7, max(-0.7, self._steer_cache))
+        self._control.steer = round(self._steer_cache, 1)
+        self._control.brake = 1.0 if keys[K_DOWN] or keys[K_s] else 0.0
+        self._control.hand_brake = bool(keys[K_SPACE])
 
     @staticmethod
     def _is_quit_shortcut(key):
@@ -347,7 +432,7 @@ class HUD(object):
         """
         self.latitude = data.latitude
         self.longitude = data.longitude
-        self.csv_writer.wirte_csv(self.longitude ,self.latitude ,self.yaw)
+        
         self.update_info_text()
 
     def odometry_updated(self, data):
@@ -361,6 +446,10 @@ class HUD(object):
             data.pose.pose.orientation.z])
         self.yaw = math.degrees(yaw)
         self.update_info_text()
+        
+        # ('(% 5.1f, % 5.1f)' % (x, y))
+        
+        self.csv_writer.wirte_csv(round(self.x, 3), round(self.y, 3), round(self.z, 3), round(self.yaw, 3), round(3.6 * self.vehicle_status.velocity, 3)) # TODO:
 
     def update_info_text(self):
         """
