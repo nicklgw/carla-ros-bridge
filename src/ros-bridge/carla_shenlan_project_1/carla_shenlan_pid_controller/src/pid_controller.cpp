@@ -1,7 +1,7 @@
 #include "carla_shenlan_pid_controller/pid_controller.h"
 
 #include <assert.h>
-
+#include <iostream>
 namespace shenlan {
 namespace control {
 
@@ -19,12 +19,7 @@ PIDController::PIDController(const double kp, const double ki, const double kd) 
 double PIDController::Control(const double error, const double dt) {
     assert(dt > 0 && "dt must be positive!!!");    // 需要添加一下头文件：#include <assert.h>
 
-    double proportional_part = 0;
-    double integral_part = 0;
-    double derivative_part = 0;
-    double current_output;
-
-    if (!first_hit_) {
+    if (first_hit_) {
         first_hit_ = false;
         proportional_part = error;
         integral_part += error * dt;
@@ -42,11 +37,11 @@ double PIDController::Control(const double error, const double dt) {
     if (integral_part < -40.0){
         integral_part = -40.0;
     }
-
+    // std::cout << "integral_part: " << integral_part << std::endl;
     current_output = kp_ * proportional_part + ki_ * integral_part + kd_ * derivative_part;
 
     previous_error_ = error;
-    // previous_output_ = current_output;
+    previous_output_ = current_output;
 
     return current_output;
 }

@@ -8,6 +8,8 @@
 
 #include "carla_msgs/msg/carla_ego_vehicle_control.hpp"
 #include "carla_msgs/msg/carla_status.hpp"
+#include <std_msgs/msg/float32.hpp>
+#include "carla_msgs/msg/carla_vehicle_target_velocity.hpp"
 
 using std::placeholders::_1;
 
@@ -37,6 +39,17 @@ public:
     int cnt;
     int qos;
 
+    std::vector<std::pair<double, double>> xy_points;
+    std::vector<double> v_points;
+    std::string _line;
+    std::string count_csv;
+    std::string timestamp;
+    std::string x;
+    std::string y;
+    std::string z;
+    std::string yaw;
+    std::string velocity;
+
     double controller_frequency;
 
     double acceleration_cmd;
@@ -57,6 +70,9 @@ public:
 
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr vehicle_control_manual_override_publisher;
     std_msgs::msg::Bool vehicle_control_manual_override;
+
+    rclcpp::Publisher<carla_msgs::msg::CarlaVehicleTargetVelocity>::SharedPtr vechile_control_target_velocity_publisher;
+    carla_msgs::msg::CarlaVehicleTargetVelocity vehicle_control_target_velocity;
 
     rclcpp::Subscription<carla_msgs::msg::CarlaStatus>::SharedPtr carla_status_subscriber;
 

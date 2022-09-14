@@ -42,6 +42,7 @@ struct VehicleState
 
     double vx;
     double vy;
+    double vz;
 
     double v;
 

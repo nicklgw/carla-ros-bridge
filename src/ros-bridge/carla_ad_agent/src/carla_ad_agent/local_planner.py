@@ -162,8 +162,10 @@ class LocalPlanner(CompatibleNode):
             # move using PID controllers
             
             # print("aaaaaaaaaaaa")
+            time_now = self.get_clock().now().to_msg()
+            self.loginfo(str(self._current_speed))
             control_msg = self._vehicle_controller.run_step(
-                self._target_speed, self._current_speed, self._current_pose, target_pose)
+                self._target_speed, self._current_speed, self._current_pose, target_pose, time_now)
 
             # purge the queue of obsolete waypoints
             max_index = -1
@@ -206,7 +208,7 @@ def main(args=None):
         roscomp.on_shutdown(local_planner.emergency_stop)
 
         update_timer = local_planner.new_timer(
-            0.04, lambda timer_event=None: local_planner.run_step())
+            0.1, lambda timer_event=None: local_planner.run_step())
 
         local_planner.spin()
 

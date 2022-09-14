@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python
 #
 # Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma de
@@ -12,45 +13,49 @@ from __future__ import print_function
 
 # import datetime
 import math
-import rclpy
+from threading import Thread
+
+import numpy
+from transforms3d.euler import quat2euler
+
+import ros_compatibility as roscomp
+from ros_compatibility.node import CompatibleNode
+from ros_compatibility.qos import QoSProfile, DurabilityPolicy
 
 from carla_msgs.msg import CarlaEgoVehicleControl
 from nav_msgs.msg import Odometry
 import numpy as np
 import threading
-from rclpy.node import Node
+
 # ==============================================================================
 # -- ShenlanControl -----------------------------------------------------------
 # ==============================================================================
 
-# class ShenlanControl(CompatibleNode):
-class ShenlanControl(Node):
+class ShenlanControl(CompatibleNode):
     """
     Handle input events
     """
     def __init__(self):
-        super().__init__("ShenlanControl")
-        self.role_name = "ego_vehicle"
+        super(ShenlanControl, self).__init__("ShenlanControl")
+        self.role_name = self.get_param("role_name", "ego_vehicle")
         self.data_lock = threading.Lock()
         self._control = CarlaEgoVehicleControl()
         self._steer_cache = 0.0
 
-        fast_qos = 10
+        fast_qos = QoSProfile(depth=10)
 
         self.vehicle_control_manual_override = True
 
-        self.vehicle_control_publisher = self.create_publisher(
+        self.vehicle_control_publisher = self.new_publisher(
             CarlaEgoVehicleControl,
             "/carla/{}/vehicle_control_cmd".format(self.role_name),
             qos_profile=fast_qos)
         
-        self._odometry_subscriber = self.create_subscription(
+        self._odometry_subscriber = self.new_subscription(
             Odometry,
             "/carla/{}/odometry".format(self.role_name),
             self.odometry_cb,
             qos_profile=10)
-        
-        self.timer_pid_iteration = self.create_timer(0.08, self._on_new_carla_frame)
         
         self._K_P = 0.206
         self._K_D = 0.515
@@ -66,7 +71,7 @@ class ShenlanControl(Node):
 
     def odometry_cb(self, odometry_msg):
         with self.data_lock:
-            self.get_logger().info("I hear imu.")
+            self.loginfo("I hear imu.")
             self._current_pose = odometry_msg.pose.pose
             self._current_speed = math.sqrt(odometry_msg.twist.twist.linear.x ** 2 +
                                             odometry_msg.twist.twist.linear.y ** 2 +
@@ -80,7 +85,7 @@ class ShenlanControl(Node):
         send the current from within here (once per frame)
         """
         acceleration_cmd = self._pid_run_step(self.target_speed, self._current_speed)
-        self.get_logger().info("acceleration_cmd: {}".format(acceleration_cmd))
+        print("acceleration_cmd: {}".format(acceleration_cmd))
         try:
             self._parse_vehicle_keys(acceleration_cmd, 0.0, 0.0)
             self.vehicle_control_publisher.publish(self._control)
@@ -97,7 +102,7 @@ class ShenlanControl(Node):
         """
         previous_error = self.error
         self.error = target_speed - _current_speed
-        self.get_logger().info("velocity error: {}".format(self.error))
+        print("velocity error: {}".format(self.error))
         # restrict integral term to avoid integral windup
         self.error_integral = np.clip(self.error_integral + self.error, -40.0, 40.0)
         self.error_derivative = self.error - previous_error
@@ -121,16 +126,23 @@ class ShenlanControl(Node):
 # ==============================================================================
 
 def main(args=None):
-    rclpy.init(args=args)
+    """
+    main function
+    """
+    roscomp.init("ShenlanControl", args=args)
 
-    shenlan_control_node = ShenlanControl()
-    
-    rclpy.spin(shenlan_control_node)
-    
-    shenlan_control_node.destroy_node()
-    rclpy.shutdown()
+    try:
+        shenlan_control_node = ShenlanControl()
+        executor = roscomp.executors.MultiThreadedExecutor()
+        executor.add_node(shenlan_control_node)
+        update_timer = shenlan_control_node.new_timer(0.01, lambda timer_event=None: shenlan_control_node._on_new_carla_frame())
+        target = shenlan_control_node.spin()
+        
+    except KeyboardInterrupt:
+        roscomp.loginfo("User requested shut down.")
+    finally:
+        roscomp.shutdown()
 
 
 if __name__ == '__main__':
     main()
-

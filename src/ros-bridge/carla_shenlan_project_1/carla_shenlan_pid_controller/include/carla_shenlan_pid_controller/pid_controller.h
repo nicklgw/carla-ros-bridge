@@ -29,6 +29,11 @@ namespace shenlan
                 double previous_output_ = 0.0;
                 double integral_ = 0.0;
                 bool first_hit_ = false;
+
+                double proportional_part = 0;
+                double integral_part = 0;
+                double derivative_part = 0;
+                double current_output = 0;
         };
 
     }  // namespace control
