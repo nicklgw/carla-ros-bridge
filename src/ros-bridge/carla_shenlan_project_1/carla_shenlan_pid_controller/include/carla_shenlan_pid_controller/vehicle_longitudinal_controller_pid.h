@@ -10,6 +10,7 @@
 #include "carla_msgs/msg/carla_status.hpp"
 #include <std_msgs/msg/float32.hpp>
 #include "carla_msgs/msg/carla_vehicle_target_velocity.hpp"
+#include "carla_msgs/msg/carla_ego_vehicle_status.hpp"
 
 using std::placeholders::_1;
 
@@ -27,6 +28,8 @@ public:
 
     void VehicleControlIterationCallback(); // 收到仿真器返回的状态后，产生控制信号
     // void VehicleControlIterationCallback(carla_msgs::msg::CarlaStatus::SharedPtr msg); // 收到仿真器返回的状态后，产生控制信号
+
+    void VehicleStatusCallback(carla_msgs::msg::CarlaEgoVehicleStatus::SharedPtr msg);
 
 public:
     double V_set_;
@@ -71,10 +74,10 @@ public:
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr vehicle_control_manual_override_publisher;
     std_msgs::msg::Bool vehicle_control_manual_override;
 
-    rclcpp::Publisher<carla_msgs::msg::CarlaVehicleTargetVelocity>::SharedPtr vechile_control_target_velocity_publisher;
+    rclcpp::Publisher<carla_msgs::msg::CarlaVehicleTargetVelocity>::SharedPtr vehicle_control_target_velocity_publisher;
     carla_msgs::msg::CarlaVehicleTargetVelocity vehicle_control_target_velocity;
 
-    rclcpp::Subscription<carla_msgs::msg::CarlaStatus>::SharedPtr carla_status_subscriber;
+    rclcpp::Subscription<carla_msgs::msg::CarlaEgoVehicleStatus>::SharedPtr carla_status_subscriber;
 
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr localization_data_subscriber;
 

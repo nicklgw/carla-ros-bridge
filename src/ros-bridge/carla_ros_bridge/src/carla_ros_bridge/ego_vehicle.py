@@ -28,8 +28,10 @@ from carla_msgs.msg import (
 from std_msgs.msg import Bool  # pylint: disable=import-error
 from std_msgs.msg import ColorRGBA  # pylint: disable=import-error
 
+from rclpy.node import Node
+import rclpy 
 
-class EgoVehicle(Vehicle):
+class EgoVehicle(Vehicle, Node):
 
     """
     Vehicle implementation details for the ego vehicle
@@ -115,8 +117,11 @@ class EgoVehicle(Vehicle):
 
         :return:
         """
-        vehicle_status = CarlaEgoVehicleStatus(
-            header=self.get_msg_header("map", timestamp=timestamp))
+        vehicle_status = CarlaEgoVehicleStatus(header=self.get_msg_header("map", timestamp=timestamp))
+        # vehicle_status = CarlaEgoVehicleStatus()
+        # vehicle_status.header.stamp = self.get_clock().now().to_msg()
+        # print("aaaaaaaaaaaaaaaaaaaaaaaaaa")
+        # print(vehicle_status.header.stamp.sec)
         vehicle_status.velocity = self.get_vehicle_speed_abs(self.carla_actor)
         vehicle_status.acceleration.linear = self.get_current_ros_accel().linear
         vehicle_status.orientation = self.get_current_ros_pose().orientation

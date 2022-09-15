@@ -13,7 +13,7 @@ static const rclcpp::Logger LOGGER = rclcpp::get_logger("carla_shenlan_pid_contr
 // Controller
 shenlan::control::PIDController yaw_pid_controller(0.5, 0.3, 0.1);             // 转向角pid
 // shenlan::control::PIDController speed_pid_controller(0.206, 0.0206, 0.515);    // 速度pid Kp Ki Kd
-shenlan::control::PIDController speed_pid_controller(0.1, 0.01, 0.001);    // 速度pid Kp Ki Kd
+shenlan::control::PIDController speed_pid_controller(0.16, 0.02, 0.01);    // 速度pid Kp Ki Kd
 
 VehicleControlPublisher::VehicleControlPublisher()
     : Node("carla_shenlan_pid_controller")
@@ -41,9 +41,13 @@ VehicleControlPublisher::VehicleControlPublisher()
     control_cmd.reverse = false;
     control_cmd.hand_brake = false;
 
-    vechile_control_target_velocity_publisher = this->create_publisher<carla_msgs::msg::CarlaVehicleTargetVelocity>("/carla/ego_vehicle/target_velocity", qos);
-        
+    auto time_node_start = this->now();
+    vehicle_control_target_velocity_publisher = this->create_publisher<carla_msgs::msg::CarlaVehicleTargetVelocity>("/carla/ego_vehicle/target_velocity", qos);
+    vehicle_control_target_velocity.header.stamp = this->now();
     vehicle_control_target_velocity.velocity = 0.0;
+
+    carla_status_subscriber = this->create_subscription<carla_msgs::msg::CarlaEgoVehicleStatus>("/carla/ego_vehicle/vehicle_status", qos, std::bind(&VehicleControlPublisher::VehicleStatusCallback, this, _1));
+    
 
     // 读取参考线路径
     std::ifstream infile("src/ros-bridge/carla_shenlan_project_1/carla_shenlan_pid_controller/data/gps_data_2022_09_09_15_18_45.csv", ios::in);    //将文件流对象与文件连接起来
@@ -121,6 +125,18 @@ VehicleControlPublisher::~VehicleControlPublisher() {}
 - Outputs     : None
 - Comments    : None
 **************************************************************************************'''*/
+
+void VehicleControlPublisher::VehicleStatusCallback(carla_msgs::msg::CarlaEgoVehicleStatus::SharedPtr msg)
+/*'''**************************************************************************************
+- FunctionName: None
+- Function    : None
+- Inputs      : None
+- Outputs     : None
+- Comments    : 为了在rqt里面，一个plot里面查看目标速度和实际速度，需要两个速度有关的消息都使用
+**************************************************************************************'''*/
+{
+    vehicle_control_target_velocity.header.stamp = msg->header.stamp;
+}
 
 double VehicleControlPublisher::PointDistanceSquare(const TrajectoryPoint &point, const double x, const double y)
 /*'''**************************************************************************************
@@ -254,8 +270,10 @@ void VehicleControlPublisher::VehicleControlIterationCallback()
     control_cmd.manual_gear_shift = false;
 
     vehicle_control_publisher->publish(control_cmd);
-    vehicle_control_target_velocity.data = target_point_.v;
-    vechile_control_target_velocity_publisher->publish(vehicle_control_target_velocity);
+
+    // vehicle_control_target_velocity.header.stamp = this->now();
+    vehicle_control_target_velocity.velocity = target_point_.v / 3.6;
+    vehicle_control_target_velocity_publisher->publish(vehicle_control_target_velocity);
     cnt++;
 }
 
