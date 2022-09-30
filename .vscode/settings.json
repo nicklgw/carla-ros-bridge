@@ -77,7 +77,8 @@
         "mprealsupport": "cpp",
         "splines": "cpp",
         "spline.h": "c",
-        "hash_set": "cpp"
+        "hash_set": "cpp",
+        "*.idl": "cpp"
     },
     "python.autoComplete.extraPaths": [
         "/opt/ros/foxy/lib/python3.8/site-packages",
