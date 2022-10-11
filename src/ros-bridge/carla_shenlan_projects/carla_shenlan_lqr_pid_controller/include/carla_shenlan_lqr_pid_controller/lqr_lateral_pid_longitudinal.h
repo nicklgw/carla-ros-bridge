@@ -79,11 +79,10 @@ class LQRControllerNode : public rclcpp::Node {
     carla_msgs::msg::CarlaVehicleTargetVelocity vehicle_control_target_velocity;
 
     rclcpp::Subscription<carla_msgs::msg::CarlaEgoVehicleStatus>::SharedPtr carla_status_subscriber;
-
+    void VehicleStatusCallback(carla_msgs::msg::CarlaEgoVehicleStatus::SharedPtr msg);
+    
     rclcpp::Publisher<carla_msgs::msg::CarlaEgoVehicleControl>::SharedPtr vehicle_control_publisher;
     carla_msgs::msg::CarlaEgoVehicleControl control_cmd;
-
-    void VehicleStatusCallback(carla_msgs::msg::CarlaEgoVehicleStatus::SharedPtr msg);
 
     TrajectoryPoint QueryNearestPointByPosition(const double x, const double y);
     double PointDistanceSquare(const TrajectoryPoint &point, const double x, const double y);
