@@ -216,13 +216,13 @@ void FG_eval::operator()(ADvector &fg, ADvector &vars)
         /* 车辆侧向速度 */
         /* 当不考虑速度的方向变化时,对于 v = v0 + a * t是不成立的,举一个简单的例子,对于圆周运动,侧向加速度可以较大,在速度恒定的条件下,侧向加速度全部为向心加速度,
         用于改变速度的方向,侧向速度大小的变化没有作用, 因此,这里将侧向速度看作一个时域内不变处理. */
-        // AD<double> a_lateral = ((-v_longitudinal_0) * (yaw_rate_0)) +
-                            //    (2 / m) * (Cf * ((-front_wheel_angle_0 / t1) - ((v_lateral_0 + lf * yaw_rate_0) / (v_longitudinal_0))) + Cr * ((lr * yaw_rate_0 - v_lateral_0) / (v_longitudinal_0)));
-        fg[1 + v_lateral_start + t] = v_lateral_1 - (v_lateral_0 + 0 * dt);
+        AD<double> a_lateral = ((-v_longitudinal_0) * (yaw_rate_0)) +
+                               (2 / m) * (Cf * ((-front_wheel_angle_0 / 1) - ((v_lateral_0 + lf * yaw_rate_0) / (v_longitudinal_0))) + Cr * ((lr * yaw_rate_0 - v_lateral_0) / (v_longitudinal_0)));
+        fg[1 + v_lateral_start + t] = v_lateral_1 - (v_lateral_0 + a_lateral * dt);
         
         /* 车辆横摆角速度 */
         AD<double> yaw_acceleration = 2 / I * ((lf * Cf * (((-front_wheel_angle_0 / 1) - ((v_lateral_0 + lf * yaw_rate_0) / (v_longitudinal_0))))) - (lr * Cr * (lr * yaw_rate_0 - v_lateral_0) / (v_longitudinal_0)));
-        fg[1 + yaw_rate_start + t] = yaw_rate_1 - (yaw_rate_0 + 0 * dt);
+        fg[1 + yaw_rate_start + t] = yaw_rate_1 - (yaw_rate_0 + yaw_acceleration * dt);
 
         /* 横向位置跟踪误差 */
         fg[1 + cte_start + t] = cte_1 - (f_0 - y_0 + v_longitudinal_0 * CppAD::tan(epsi_0) * dt);

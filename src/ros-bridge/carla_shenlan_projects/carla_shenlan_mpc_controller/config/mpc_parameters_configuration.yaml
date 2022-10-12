@@ -20,7 +20,7 @@ mpc_lateral_longitudinal:
     mpc_tracking_enable_bool: true
 
     # MPC 目标函数里面可以调节的权重
-    mpc_cte_weight_int:  1000 # ok
+    mpc_cte_weight_int:  600 # ok
     mpc_epsi_weight_int: 1000 # ok
     mpc_v_weight_int: 100 # ok real 100
     # 控制量幅值代价权重
