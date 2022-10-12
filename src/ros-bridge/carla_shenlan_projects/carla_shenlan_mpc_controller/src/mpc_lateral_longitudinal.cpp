@@ -6,6 +6,8 @@
 #include <memory>
 #include <string>
 
+#include "Eigen/LU"
+#include "math.h"
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
 
@@ -139,8 +141,9 @@ MPCControllerNode::MPCControllerNode()
     // mpc 求解出来的未来一段时间的路径，以及mpc使用的未来一段时间的参考轨迹点
     mpc_reference_path_publisher = this->create_publisher<visualization_msgs::msg::Marker>("mpc_reference_path", 10);
     mpc_output_path_publisher = this->create_publisher<visualization_msgs::msg::Marker>("mpc_output_path", 10);
+    mpc_iteration_time_publisher = this->create_publisher<std_msgs::msg::Float32>("mpc_iteration_duration", 10);    // 用于统计MPC求解时间的广播器
 
-    vehicle_control_iteration_timer = this->create_wall_timer(10ms, std::bind(&MPCControllerNode::VehicleControllerIterationCallback, this));
+    vehicle_control_iteration_timer = this->create_wall_timer(50ms, std::bind(&MPCControllerNode::VehicleControllerIterationCallback, this));
     global_path_publish_timer = this->create_wall_timer(500ms, std::bind(&MPCControllerNode::GlobalPathPublishCallback, this));
 
     RCLCPP_INFO(LOGGER, "mpc_control_node init finish!");
@@ -175,7 +178,7 @@ void MPCControllerNode::OdomCallback(nav_msgs::msg::Odometry::SharedPtr msg)
         vehicleState_.start_point_y = msg->pose.pose.position.y;
         firstRecord_ = false;
     }
-    vehicleState_.x = msg->pose.pose.position.x;    //
+    vehicleState_.x = msg->pose.pose.position.x;
     vehicleState_.y = msg->pose.pose.position.y;
     vehicleState_.vx = msg->twist.twist.linear.x;
     vehicleState_.vy = msg->twist.twist.linear.y;
@@ -190,12 +193,14 @@ void MPCControllerNode::OdomCallback(nav_msgs::msg::Odometry::SharedPtr msg)
     v_longitudinal = msg->twist.twist.linear.x;
     v_lateral = msg->twist.twist.linear.y;
 
+    // cout << "v_longitudinal: " << v_longitudinal << " , v_lateral" << v_lateral << endl;
+
     /* 将收到的定位信息发布出来,在rviz里显示历史轨迹 */
     history_path.header.stamp = this->get_clock()->now();
-    history_path.header.frame_id = "gps";
+    history_path.header.frame_id = "map";
 
     history_path_points.header.stamp = this->get_clock()->now();
-    history_path_points.header.frame_id = "gps";
+    history_path_points.header.frame_id = "map";
     history_path_points.pose.position.x = vehicleState_.x;
     history_path_points.pose.position.y = vehicleState_.y;
     history_path_points.pose.position.z = 0;
@@ -212,7 +217,7 @@ void MPCControllerNode::OdomCallback(nav_msgs::msg::Odometry::SharedPtr msg)
     // 将世界坐标系和车辆坐标系的位置关系广播出来
     geometry_msgs::msg::TransformStamped transformStamped;
     transformStamped.header.stamp = this->get_clock()->now();
-    transformStamped.header.frame_id = "gps";
+    transformStamped.header.frame_id = "map";
     transformStamped.child_frame_id = "vehicle_odometry";
     transformStamped.transform.translation.x = msg->pose.pose.position.x;
     transformStamped.transform.translation.y = msg->pose.pose.position.y;
@@ -253,7 +258,7 @@ void MPCControllerNode::loadRoadmap(const std::string& roadmap_path)
 {
     // 读取参考线路径
     std::ifstream infile(roadmap_path, std::ios::in);    //将文件流对象与文件连接起来
-    assert(infile.is_open());                       //若失败,则输出错误消息,并终止程序运行
+    assert(infile.is_open());                            //若失败,则输出错误消息,并终止程序运行
 
     while (getline(infile, _line)) {
         std::cout << _line << std::endl;
@@ -312,7 +317,7 @@ void MPCControllerNode::loadRoadmap(const std::string& roadmap_path)
 
         planning_published_trajectory.trajectory_points.push_back(trajectory_pt);
 
-        this_pose_stamped.header.frame_id = "gps";
+        this_pose_stamped.header.frame_id = "map";
         this_pose_stamped.header.stamp = this->get_clock()->now();
         this_pose_stamped.pose.position.x = xy_points[i].first;
         this_pose_stamped.pose.position.y = xy_points[i].second;
@@ -323,7 +328,7 @@ void MPCControllerNode::loadRoadmap(const std::string& roadmap_path)
         this_pose_stamped.pose.orientation.w = 0;    // 这里实际上是放的frenet坐标系的S
 
         global_path.poses.push_back(this_pose_stamped);
-        global_path.header.frame_id = "gps";
+        global_path.header.frame_id = "map";
     }
 
     goal_point = planning_published_trajectory.trajectory_points.back();
@@ -353,7 +358,7 @@ void MPCControllerNode::VehicleStatusCallback(carla_msgs::msg::CarlaEgoVehicleSt
 **************************************************************************************'''*/
 {
     vehicle_control_target_velocity.header.stamp = msg->header.stamp;
-    delta = msg->control.steer;    // [-1, 1] from carla
+    delta = msg->control.steer * 24;    // [-1, 1] from carla
 }
 
 double MPCControllerNode::PointDistanceSquare(const TrajectoryPoint& point, const double x, const double y)
@@ -410,7 +415,9 @@ void MPCControllerNode::VehicleControllerIterationCallback()
 
     if (!firstRecord_) {    //有定位数据开始控制
 
-        reference_path_length = 10;    // 10 points
+        reference_path_length = 16;    // 20 points
+        global_path_remap_x.clear();
+        global_path_remap_y.clear();
 
         for (size_t i = 0; i < xy_points.size() - 1; i++) {
             double shift_x = xy_points[i].first - px;
@@ -437,18 +444,44 @@ void MPCControllerNode::VehicleControllerIterationCallback()
         cte = polyeval(coeffs, 0);    // 在车辆坐标系下，当前时刻的位置偏差就是期望轨迹在车辆坐标系中的截距
         double epsi = -atan(coeffs[1]);
 
+        // std::cout << "cte: " << cte << " , epsi: " << epsi << std::endl;
+
+        /*Latency for predicting time at actuation*/
+        double dt = controller_delay_compensation;
+        // double dt = 0;
+
+        double Lf = kinamatic_para_Lf;
+
+        /* Predict future state (take latency into account) x, y and psi are all zero in the new reference system */
+        double pred_px = 0.0 + v_longitudinal * dt;    // psi is 0, cos(0) = 1, can leave out
+        double pred_py = 0.0 + v_lateral * 0;          // sin(0) = 0
+        double pred_psi = 0.0 - v_longitudinal * delta / Lf * 0;
+        double pred_v_longitudinal = v_longitudinal + a_longitudinal * 0;
+        double pred_v_lateral = v_lateral + 0.0 * 0;
+        double pred_omega = yaw_rate;
+        double pred_cte = cte + v_longitudinal * tan(epsi) * 0;
+        double pred_epsi = epsi - v_longitudinal * delta / Lf * 0;
+        // cout << pred_v_longitudinal << " *********** v_longitudinal" << target_v << "target_v" << endl;
         /* Feed in the predicted state values.  这里传入的是车辆坐标系下的控制器时延模型*/
         Eigen::VectorXd state(8);
-        state << px, py, psi, v_longitudinal, v_lateral, yaw_rate, cte, epsi;
+        state << pred_px, pred_py, pred_psi, pred_v_longitudinal, pred_v_lateral, pred_omega, pred_cte, pred_epsi;
 
         auto vars =
             mpc.Solve(state, coeffs,
                       target_v,    // m/s
                       cte_weight, epsi_weight, v_weight, steer_actuator_cost_weight, acc_actuator_cost_weight, change_steer_cost_weight, change_accel_cost_weight, mpc_control_horizon_length, mpc_control_step_length, kinamatic_para_Lf, a_lateral, old_steer_value, old_throttle_value, steering_ratio);
-        old_steer_value = vars[0];
+        old_steer_value = vars[0]; // * (1 / (24 * M_PI / 180));    // carla里面的横向控制信号 [-1,1]，但是模型计算的时候使用的是弧度单位的前轮转角，当前轮最大转角为24°的时候，通过这个公式进行转换
         old_throttle_value = vars[1];
 
         control_cmd.header.stamp = this->now();
+
+        if (vars[0] >= 1.0) {
+            vars[0] = 1.0;
+        }
+        if (vars[0] <= -1) {
+            vars[0] = -1.0;
+        }
+
         if (vars[1] >= 1.0) {
             vars[1] = 1.0;
         }
@@ -468,6 +501,8 @@ void MPCControllerNode::VehicleControllerIterationCallback()
             control_cmd.steer = old_steer_value;
         }
         // control_cmd.steer = 0;
+        // control_cmd.throttle = 0.2;
+        control_cmd.brake = 0;
         control_cmd.gear = 1;
         control_cmd.reverse = false;
         control_cmd.hand_brake = false;
@@ -485,21 +520,21 @@ void MPCControllerNode::VehicleControllerIterationCallback()
         /* 可视化里面,这里覆盖了从yaml配置文件传过来的可视化长度 */
         double poly_inc = 0.6;
         size_t num_points = reference_path_length; /* how many point "int the future" to be plotted. */
-        
-        double future_x;
+
         for (size_t i = 0; i < num_points; i++) {
-             future_x = poly_inc * i;
+            double future_x;
+            future_x = poly_inc * i;
+            double future_y = polyeval(coeffs, future_x);
+            next_x_vals.push_back(future_x);
+            next_y_vals.push_back(future_y);
         }
-        double future_y = polyeval(coeffs, future_x);
-        next_x_vals.push_back(future_x);
-        next_y_vals.push_back(future_y);
 
         reference_path_id++;
         if (reference_path_id > 10000) {
             reference_path_id = 100;
         }
         reference_path.id = reference_path_id;
-        reference_path.header.frame_id = "base_link";
+        reference_path.header.frame_id = "vehicle_odometry";
         reference_path.header.stamp = this->get_clock()->now();
         reference_path.type = visualization_msgs::msg::Marker::LINE_STRIP;
         reference_path.action = visualization_msgs::msg::Marker::ADD;
@@ -507,7 +542,7 @@ void MPCControllerNode::VehicleControllerIterationCallback()
         reference_path.scale.x = 0.04;
         reference_path.scale.y = 0.04;
         reference_path.scale.z = 0.04;
-        reference_path.color.g = 1.0;
+        reference_path.color.b = 1.0;
         reference_path.color.a = 1.0;
 
         reference_path.points.clear();
@@ -524,11 +559,11 @@ void MPCControllerNode::VehicleControllerIterationCallback()
 
         // mpc_output_path;
         mpc_output_path.id = reference_path_id;
-        mpc_output_path.header.frame_id = "base_link";
+        mpc_output_path.header.frame_id = "vehicle_odometry";
         mpc_output_path.header.stamp = this->get_clock()->now();
         mpc_output_path.type = visualization_msgs::msg::Marker::LINE_STRIP;
         mpc_output_path.action = visualization_msgs::msg::Marker::ADD;
-        mpc_output_path.lifetime = rclcpp::Duration(20ms);
+        mpc_output_path.lifetime = rclcpp::Duration(200ms);
         mpc_output_path.scale.x = 0.04;
         mpc_output_path.scale.y = 0.04;
         mpc_output_path.scale.z = 0.04;
@@ -548,10 +583,18 @@ void MPCControllerNode::VehicleControllerIterationCallback()
                 // std::cout << pp.x << "  mpc output  " << pp.y << std::endl;
             }
         }
+        // cout << "global_path_remap_y.size() " << global_path_remap_y.size() << endl;
+        // for (uint i = 0; i < uint(global_path_remap_y.size()); i++) {
+        //     pp.x = global_path_remap_x[i];
+        //     pp.y = global_path_remap_y[i];
+        //     mpc_output_path.points.push_back(pp);
+        //     std::cout << "iiiiii: " << i << endl;
+        //     // std::cout << pp.x << "  mpc output  " << pp.y << std::endl;
+        // }
 
         vehicle_control_target_velocity.velocity = target_v;
         vehicle_control_target_velocity_publisher->publish(vehicle_control_target_velocity);
-        cout << "control_cmd.steer: " << control_cmd.steer << endl;
+        // cout << "control_cmd.steer: " << control_cmd.steer << endl;
         // cout << "~~ vehicleState_.v: " << vehicleState_.velocity * 3.6 << ", target_point_.v: " << target_point_.v << ", v_err: " << v_err << endl;
         // cout << "yaw_err: " << yaw_err << endl;
 

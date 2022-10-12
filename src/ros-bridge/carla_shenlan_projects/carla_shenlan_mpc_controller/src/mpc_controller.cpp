@@ -98,13 +98,13 @@ void FG_eval::operator()(ADvector &fg, ADvector &vars)
     // cout << "N in mpc controller: " << N << endl;
     // cout << "dt in mpc controller: " << dt << endl;
     // cout << "Lf in mpc controller: " << Lf << endl;
-    // cout << "ref_v in mpc controller (km/h): " << ref_v * 3.6 << endl;
-    // cout << "cte_weight in mpc controller : " << cte_weight << endl;
-    // cout << "epsi_weight in mpc controller : " << epsi_weight << endl;
-    // cout << "v_weight in mpc controller : " << v_weight << endl;
-    // cout << "actuator_cost_weight in mpc controller : " << actuator_cost_weight << endl;
-    // cout << "change_steer_cost_weight in mpc controller : " << change_steer_cost_weight << endl;
-    // cout << "change_accel_cost_weight in mpc controller : " << change_accel_cost_weight << endl;
+    // std::cout << "ref_v in mpc controller (km/h): " << ref_v * 3.6 << std::endl;
+    // std::cout << "cte_weight in mpc controller : " << cte_weight << std::endl;
+    // std::cout << "epsi_weight in mpc controller : " << epsi_weight << std::endl;
+    // std::cout << "v_weight in mpc controller : " << v_weight << std::endl;
+    // // std::cout << "actuator_cost_weight in mpc controller : " << actuator_cost_weight << std::endl;
+    // std::cout << "change_steer_cost_weight in mpc controller : " << change_steer_cost_weight << std::endl;
+    // std::cout << "change_accel_cost_weight in mpc controller : " << change_accel_cost_weight << std::endl;
 
     /* Objective term 1: Keep close to reference values.*/
     for (size_t t = 0; t < Np; t++)
@@ -208,7 +208,7 @@ void FG_eval::operator()(ADvector &fg, ADvector &vars)
         fg[1 + y_start + t] = y_1 - (y_0 + v_longitudinal_0 * CppAD::sin(psi_0) * dt + v_lateral_0 * CppAD::cos(psi_0) * dt);
 
         /* 航向角变化 */
-        fg[1 + psi_start + t] = psi_1 - (psi_0 - v_longitudinal_0 * (front_wheel_angle_0 / steer_ratio) / lf * dt);
+        fg[1 + psi_start + t] = psi_1 - (psi_0 - v_longitudinal_0 * (front_wheel_angle_0 / 1) / lf * dt);
 
         /* 车辆纵向速度 */
         fg[1 + v_longitudinal_start + t] = v_longitudinal_1 - (v_longitudinal_0 + longitudinal_acceleration_0 * dt);
@@ -221,14 +221,14 @@ void FG_eval::operator()(ADvector &fg, ADvector &vars)
         fg[1 + v_lateral_start + t] = v_lateral_1 - (v_lateral_0 + 0 * dt);
         
         /* 车辆横摆角速度 */
-        AD<double> yaw_acceleration = 2 / I * ((lf * Cf * (((-front_wheel_angle_0 / steer_ratio) - ((v_lateral_0 + lf * yaw_rate_0) / (v_longitudinal_0))))) - (lr * Cr * (lr * yaw_rate_0 - v_lateral_0) / (v_longitudinal_0)));
-        fg[1 + yaw_rate_start + t] = yaw_rate_1 - (yaw_rate_0 + yaw_acceleration * dt);
+        AD<double> yaw_acceleration = 2 / I * ((lf * Cf * (((-front_wheel_angle_0 / 1) - ((v_lateral_0 + lf * yaw_rate_0) / (v_longitudinal_0))))) - (lr * Cr * (lr * yaw_rate_0 - v_lateral_0) / (v_longitudinal_0)));
+        fg[1 + yaw_rate_start + t] = yaw_rate_1 - (yaw_rate_0 + 0 * dt);
 
         /* 横向位置跟踪误差 */
         fg[1 + cte_start + t] = cte_1 - (f_0 - y_0 + v_longitudinal_0 * CppAD::tan(epsi_0) * dt);
 
         /* 航向跟踪误差 */
-        fg[1 + epsi_start + t] = epsi_1 - (psi_0 - psi_des_0 - v_longitudinal_0 * (front_wheel_angle_0 / steer_ratio) / Lf * dt);
+        fg[1 + epsi_start + t] = epsi_1 - (psi_0 - psi_des_0 - v_longitudinal_0 * (front_wheel_angle_0 / 1) / Lf * dt);
 
     }
 }
@@ -328,7 +328,7 @@ std::vector<double> mpc_controller::Solve(const Eigen::VectorXd &state,
         vars_upper_bounds[i] = +std::numeric_limits<float>::max();
     }
     /* Set upper and lower constraints for steering. */
-    double max_degree = 25.0 * steer_ratio;
+    double max_degree = 24;
     double max_radians = max_degree * M_PI / 180;
     for (size_t i = front_wheel_angle_start; i < longitudinal_acceleration_start; i++)
     {
