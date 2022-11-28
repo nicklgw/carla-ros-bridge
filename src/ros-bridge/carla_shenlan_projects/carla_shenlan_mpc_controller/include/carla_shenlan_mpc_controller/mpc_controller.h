@@ -11,7 +11,10 @@
 #include "Eigen/Core"
 #include "common.h"
 #include <cppad/cppad.hpp>
+
+#define HAVE_CSTDDEF
 #include <cppad/ipopt/solve.hpp>
+#undef HAVE_CSTDDEF
 
 using CppAD::AD;
 using Eigen::VectorXd;
