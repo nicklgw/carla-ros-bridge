@@ -330,7 +330,7 @@ void VehicleControlPublisher::VehicleControlIterationCallback()
         control_cmd.throttle = acceleration_cmd;
         control_cmd.brake = 0;
     }
-    // std::cout << "acceleration_cmd: " << acceleration_cmd << std::endl;
+    std::cout << "acceleration_cmd: " << acceleration_cmd << std::endl;
     control_cmd.steer = cmd.steer_target;
     control_cmd.gear = 1;
     control_cmd.reverse = false;
