@@ -87,7 +87,11 @@ import os
 
 class CSVHandler():
     def __init__(self):
-        data_storage_folder = '/' + sys.argv[0].split('/')[1] + '/' + sys.argv[0].split('/')[2] + '/' + 'carla-ros-bridge/run_log/'
+        print("current absolute path1: ", sys.argv[0])
+        print("current absolute path2: ", os.getcwd())
+        # print(sys.argv[0]) 
+        # data_storage_folder = '/' + sys.argv[0].split('/')[1] + '/' + sys.argv[0].split('/')[2] + '/' + 'carla-ros-bridge/run_log/'
+        data_storage_folder = os.path.join(os.getcwd(), "run_log/")
         if not os.path.exists(data_storage_folder):
             os.makedirs(data_storage_folder)
 
@@ -459,6 +463,8 @@ class HUD(object):
         # ('(% 5.1f, % 5.1f)' % (x, y))
         
         self.csv_writer.wirte_csv(round(self.x, 3), round(self.y, 3), round(self.z, 3), round(self.yaw, 3), round(3.6 * self.vehicle_status.velocity, 3)) # TODO:
+        
+        print("logging...")
 
     def update_info_text(self):
         """
