@@ -132,11 +132,17 @@ bool LqrController::ComputeControlCommand(const VehicleState &localization, cons
      0.0,   ((lr * cr - lf * cf) / i_z) / v,   (l_f * c_f - l_r * c_r) / i_z,   (-1.0 * (l_f^2 * c_f + l_r^2 * c_r) / i_z) / v;]
     */
     // TODO 01 配置状态矩阵A
-    
+    double v_ = std::max(localization.velocity,minimum_speed_protection_);
+    matrix_a_(1,1) = matrix_a_coeff_(1,1)/v_;
+    matrix_a_(1,3) = matrix_a_coeff_(1,3)/v_;
+    matrix_a_(3,1) = matrix_a_coeff_(3,1)/v_;
+    matrix_a_(3,3) = matrix_a_coeff_(3,3)/v_;
+
     /*
     b = [0.0, c_f / m, 0.0, l_f * c_f / i_z]^T
     */
     // TODO 02 动力矩阵B
+    matrix_bd_ = matrix_bd_;
     // cout << "matrix_bd_.row(): " << matrix_bd_.rows() << endl;
     // cout << "matrix_bd_.col(): " << matrix_bd_.cols() << endl;
     // Update state = [Lateral Error, Lateral Error Rate, Heading Error, Heading Error Rate]
@@ -159,7 +165,7 @@ bool LqrController::ComputeControlCommand(const VehicleState &localization, cons
     //   Convert vehicle steer angle from rad to degree and then to steer degrees
     //   then to 100% ratio
     std::cout << "matrix_k_: " << matrix_k_ << std::endl;
-    double steer_angle_feedback = 0;
+    double steer_angle_feedback = -(matrix_k_ * matrix_state_)(0,0);
 
     // TODO 07 计算前馈控制，计算横向转角的反馈量
     double steer_angle_feedforward = 0.0;
@@ -195,13 +201,55 @@ void LqrController::UpdateState(const VehicleState &vehicle_state) {
 }
 
 // TODO 04 更新状态矩阵A并将状态矩阵A离散化
-void LqrController::UpdateMatrix(const VehicleState &vehicle_state) {}
+void LqrController::UpdateMatrix(const VehicleState &vehicle_state)
+{
+    Matrix matrix_i =Matrix::Identity(matrix_a_.cols(),matrix_a_.rows());
+    // 离散化方法------中点欧拉法----------
+    matrix_ad_ = (matrix_i-ts_*0.5*matrix_a_).inverse()*(matrix_i+ts_*0.5*matrix_a_);
+}
 
 // TODO 07 前馈控制，计算横向转角的反馈量
-double LqrController::ComputeFeedForward(const VehicleState &localization, double ref_curvature) {}
+double LqrController::ComputeFeedForward(const VehicleState &localization, double ref_curvature) 
+{
+    const double kv = lr_*mass_ /2/cf_/wheelbase_ - lf_*mass_/2/cr_/wheelbase_;
+    const double v = localization.velocity;
+    double steer_angle_feedforwardterm = wheelbase_*ref_curvature+kv*v*v*ref_curvature-matrix_k_(0,2) * (lr_*ref_curvature-lf_*mass_*v*v*ref_curvature/2/cr_/wheelbase_);
+    return steer_angle_feedforwardterm;
+}
 
 // TODO 03 计算误差
-void LqrController::ComputeLateralErrors(const double x, const double y, const double theta, const double linear_v, const double angular_v, const double linear_a, LateralControlErrorPtr &lat_con_err) {}
+void LqrController::ComputeLateralErrors(const double x, const double y, const double theta, const double linear_v, const double angular_v, const double linear_a, LateralControlErrorPtr &lat_con_err)
+{
+    auto trajectory_points = this->QueryNearestPointByPosition(x,y);
+    double dx = trajectory_points.x-x;
+    double dy = trajectory_points.y-y;
+    cout << "参考点角度:" << trajectory_points.heading << endl;
+    cout << "主车角度:" << theta <<endl;
+
+    double delta = trajectory_points.heading - atan2(dy, dx);
+    double e_y = -sin(delta)*sqrt(PointDistanceSquare(trajectory_points, x, y));
+    cout << "横向误差："<< e_y <<endl;
+    double e_theta = trajectory_points.heading - theta;
+    if (e_theta > M_PI) 
+    {
+        e_theta = e_theta - M_PI * 2;
+    }
+    if (e_theta < -M_PI) 
+    {
+        e_theta = e_theta + M_PI * 2;
+    }
+    
+    lat_con_err->lateral_error = e_y; // 横向误差
+    lat_con_err->lateral_error_rate = linear_v*std::sin(e_theta); 
+    lat_con_err->heading_error = e_theta; // 航向角误差
+    lat_con_err->heading_error_rate = angular_v - trajectory_points.v*trajectory_points.kappa;
+    
+    cout << "-=-=-=-=-=-=-=-=-=-=" << endl;
+    cout << "lateral_error： "<< lat_con_err->lateral_error << endl;
+    cout << "lateral_error_rate "<< lat_con_err->lateral_error_rate << endl;
+    cout << "heading_error "<< lat_con_err->heading_error << endl;
+    cout << "heading_error_rate "<< lat_con_err->heading_error_rate << endl;
+}
 
 // 查询距离当前位置最近的轨迹点
 TrajectoryPoint LqrController::QueryNearestPointByPosition(const double x, const double y) {
@@ -228,12 +276,31 @@ TrajectoryPoint LqrController::QueryNearestPointByPosition(const double x, const
 }
 
 // TODO 05:求解LQR方程
-void LqrController::SolveLQRProblem(const Matrix &A, const Matrix &B, const Matrix &Q, const Matrix &R, const double tolerance, const uint max_num_iteration, Matrix *ptr_K) {
+void LqrController::SolveLQRProblem(const Matrix &A, const Matrix &B, const Matrix &Q, const Matrix &R, const double tolerance, const uint max_num_iteration, Matrix *ptr_K)
+{
     // 防止矩阵的维数出错导致后续的运算失败
-    if (A.rows() != A.cols() || B.rows() != A.rows() || Q.rows() != Q.cols() || Q.rows() != A.rows() || R.rows() != R.cols() || R.rows() != B.cols()) {
+    if (A.rows() != A.cols() || B.rows() != A.rows() || Q.rows() != Q.cols() || Q.rows() != A.rows() || R.rows() != R.cols() || R.rows() != B.cols()) 
+    {
         std::cout << "LQR solver: one or more matrices have incompatible dimensions." << std::endl;
         return;
     }
+
+    Eigen::MatrixXd AT = A.transpose();
+    Eigen::MatrixXd BT = B.transpose();
+    double error = std::numeric_limits<double>::max();
+    Eigen::MatrixXd P = Q;
+    for(uint i = 0; i <= max_num_iteration; i++)
+    {
+        Eigen::MatrixXd P_Next = AT*P*A-AT*P*B*(R+BT*P*B).inverse()*BT*P*A+Q;
+        error = fabs((P_Next-P).maxCoeff());
+        P = P_Next;
+        if( error < tolerance)
+        {
+            break;
+        }
+    }
+    
+    *ptr_K = ((R+BT*P*B).inverse())*BT*P*A;
 }
 
 }    // namespace control
