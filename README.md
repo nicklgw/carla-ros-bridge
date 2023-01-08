@@ -31,7 +31,7 @@
 6. 在新的终端里面: ros2 launch carla_shenlan_lqr_pid_controller lqr_launch.py
 
 # MPC & Foxy 需要完成的内容
-1. 
+1. carla-ros-bridge/src/ros-bridge/carla_shenlan_projects/carla_shenlan_mpc_controller/src/mpc_controller.cpp 中的 TODO 部分
 
 # MPC & Foxy 启动流程
 1. cd /carla-ros-bridge
