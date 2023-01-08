@@ -18,8 +18,8 @@ nick@nick-PC:~/carla-ros-bridge$ source source_env.sh
 nick@nick-PC:~/carla-ros-bridge$ ros2 launch carla_shenlan_bridge_ego_vis carla_bridge_ego_vehilce.launch.py 
 ```
 
-#### 终端窗口3  启动MPC轨迹跟随算法,并使用rviz2可视化轨迹
+#### 终端窗口3  启动Lattice动作规划,并使用rviz2可视化轨迹
 ```
 nick@nick-hp:~/carla-ros-bridge$ source source_env.sh 
-nick@nick-hp:~/carla-ros-bridge$ ros2 launch carla_shenlan_mpc_controller mpc_launch.py
+nick@nick-hp:~/carla-ros-bridge$ ros2 launch carla_shenlan_lattice_planner lattice_launch.py
 ```

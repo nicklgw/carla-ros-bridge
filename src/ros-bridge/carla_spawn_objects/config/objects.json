@@ -23,6 +23,17 @@
         },
         {
             "type": "vehicle.tesla.model3",
+            "id": "obstacle_1",
+            "spawn_point": {"x": 255.0, "y": -195.1, "z": 1.0, "roll": 0.0, "pitch": 0.0, "yaw": -178.7}
+        },
+        {
+            "type": "vehicle.tesla.model3",
+            "id": "obstacle_2",
+            "spawn_point": {"x": 175.0, "y": -199.1, "z": 2.0, "roll": 0.0, "pitch": 0.0, "yaw": -178.7}
+        },
+
+        {
+            "type": "vehicle.tesla.model3",
             "id": "ego_vehicle",
             "sensors": 
             [

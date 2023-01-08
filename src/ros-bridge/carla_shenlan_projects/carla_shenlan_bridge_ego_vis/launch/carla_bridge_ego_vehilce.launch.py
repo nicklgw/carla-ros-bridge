@@ -65,8 +65,8 @@ def generate_launch_description():
         ),
         launch.actions.DeclareLaunchArgument(
             name='spawn_point',
-            default_value='176.1,-195.1,2,0,0,180'
-            # default_value='325,-195.4,2,0,0,180'
+            # default_value='176.1,-195.1,2,0,0,180'
+            default_value='325,-195.4,2,0,0,180'
         ),
         launch.actions.DeclareLaunchArgument(
             name='target_speed',
