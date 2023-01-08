@@ -157,16 +157,42 @@ bool FrenetOptimalTrajectory::check_collision(FrenetPath path, const Vec_Poi ob)
 };
 // 03
 // 检查路径，通过限制最大速度，最大加速度，最大曲率与避障，选取可使用的轨迹数组
-Vec_Path FrenetOptimalTrajectory::check_paths(Vec_Path path_list, const Vec_Poi ob) {
+Vec_Path FrenetOptimalTrajectory::check_paths(Vec_Path path_list, const Vec_Poi ob) 
+{
     Vec_Path output_fp_list;
     //TODO: 补全代码
+    for (FrenetPath fp : path_list)
+    {
+        if (fp.max_speed <= MAX_SPEED && fp.max_accel <= MAX_ACCEL && fp.max_curvature <= MAX_CURVATURE && this->check_collision(fp, ob))
+        {
+            output_fp_list.push_back(fp);
+        }
+    }
 
     return output_fp_list;
 };
 
 // TODO: step 1 finish frenet_optimal_planning
-FrenetPath FrenetOptimalTrajectory::frenet_optimal_planning(Spline2D csp, float s0, float c_speed, float c_d, float c_d_d, float c_d_dd, Vec_Poi ob) {
+FrenetPath FrenetOptimalTrajectory::frenet_optimal_planning(Spline2D csp, float s0, float c_speed, float c_d, float c_d_d, float c_d_dd, Vec_Poi ob) 
+{
+    Vec_Path fp_list = calc_frenet_paths(c_speed, c_d, c_d_d, c_d_dd, s0);
+    
+    calc_global_paths(fp_list, csp);
+    
+    Vec_Path save_paths = check_paths(fp_list, ob);
+    
+    float min_cost = std::numeric_limits<float>::max();
+    FrenetPath final_path;
+    for (auto path : save_paths) 
+    {
+        if (min_cost >= path.cf) 
+        {
+            min_cost = path.cf;
+            final_path = path;
+        }
+    }
 
+    return final_path;
 };
 
 FrenetPath FrenetOptimalTrajectory::frenet_optimal_planning(Spline2D csp, const FrenetInitialConditions& frenet_init_conditions, Vec_Poi ob) {
