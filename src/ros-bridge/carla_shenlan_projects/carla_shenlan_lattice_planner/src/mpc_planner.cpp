@@ -1,4 +1,4 @@
-#include "carla_shenlan_mpc_controller/mpc_controller.h"
+#include "carla_shenlan_lattice_planner/mpc_controller.h"
 
 #include <algorithm>
 #include <iomanip>
@@ -202,8 +202,7 @@ void FG_eval::operator()(ADvector &fg, ADvector &vars)
                                            5 * coeffs[5] * CppAD::pow(x_0, 4)); // + 6 * coeffs[6] * CppAD::pow(x_0, 5));
 
         /*The idea here is to constraint this value to be 0.*/
-    /* 当不考虑速度的方向变化时,对于 v = v0 + a * t是不成立的,举一个简单的例子,对于圆周运动,侧向加速度可以较大,在速度恒定的条件下,侧向加速度全部为向心加速度,
-        用于改变速度的方向,侧向速度大小的变化没有作用, 因此,这里将侧向速度看作一个时域内不变处理. */
+
         /* 全局坐标系 */ 
         fg[1 + x_start + t] = x_1 - (x_0 + v_longitudinal_0 * CppAD::cos(psi_0) * dt - v_lateral_0 * CppAD::sin(psi_0) * dt);
         fg[1 + y_start + t] = y_1 - (y_0 + v_longitudinal_0 * CppAD::sin(psi_0) * dt + v_lateral_0 * CppAD::cos(psi_0) * dt);
@@ -215,10 +214,11 @@ void FG_eval::operator()(ADvector &fg, ADvector &vars)
         fg[1 + v_longitudinal_start + t] = v_longitudinal_1 - (v_longitudinal_0 + longitudinal_acceleration_0 * dt);
 
         /* 车辆侧向速度 */
-    
-        AD<double> a_lateral = ((-v_longitudinal_0) * (yaw_rate_0)) +
-                               (2 / m) * (Cf * ((-front_wheel_angle_0 / 1) - ((v_lateral_0 + lf * yaw_rate_0) / (v_longitudinal_0))) + Cr * ((lr * yaw_rate_0 - v_lateral_0) / (v_longitudinal_0)));
-        fg[1 + v_lateral_start + t] = v_lateral_1 - (v_lateral_0 + a_lateral * dt);
+        /* 当不考虑速度的方向变化时,对于 v = v0 + a * t是不成立的,举一个简单的例子,对于圆周运动,侧向加速度可以较大,在速度恒定的条件下,侧向加速度全部为向心加速度,
+        用于改变速度的方向,侧向速度大小的变化没有作用, 因此,这里将侧向速度看作一个时域内不变处理. */
+        // AD<double> a_lateral = ((-v_longitudinal_0) * (yaw_rate_0)) +
+        //                        (2 / m) * (Cf * ((-front_wheel_angle_0 / 1) - ((v_lateral_0 + lf * yaw_rate_0) / (v_longitudinal_0))) + Cr * ((lr * yaw_rate_0 - v_lateral_0) / (v_longitudinal_0)));
+        fg[1 + v_lateral_start + t] = v_lateral_1 - (v_lateral_0 + 0 * dt);
         
         /* 车辆横摆角速度 */
         AD<double> yaw_acceleration = 2 / I * ((lf * Cf * (((-front_wheel_angle_0 / 1) - ((v_lateral_0 + lf * yaw_rate_0) / (v_longitudinal_0))))) - (lr * Cr * (lr * yaw_rate_0 - v_lateral_0) / (v_longitudinal_0)));
