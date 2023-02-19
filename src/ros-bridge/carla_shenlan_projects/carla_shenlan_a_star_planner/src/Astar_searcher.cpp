@@ -212,10 +212,20 @@ double AstarPathFinder::getHeu(GridNodePtr node1, GridNodePtr node2)
     Eigen::Vector3d node2_coordinate = node2->coord;
 
     // **** TODO: Manhattan *****
+    double dx = abs(node1_coordinate(0) - node2_coordinate(0));
+    double dy = abs(node1_coordinate(1) - node2_coordinate(1));
+    double dz = abs(node1_coordinate(2) - node2_coordinate(2));
+
+    distance_heuristic = (dx + dy + dz);
 
     // **** TODO: Euclidean  *****
-    
+    distance_heuristic = sqrt(pow(dx, 2) + pow(dy, 2) + pow(dz, 2));
+
     // **** TODO: Diagonal  *****
+    double dmin = min({dx, dy, dz});
+    double dmax = max({dx, dy, dz});
+    double dmid = dx + dy + dz - dmin - dmax;
+    distance_heuristic = (sqrt(3)-sqrt(2))*dmin + (sqrt(2)-1)*dmid + dmax;
     
     if (tie_breaker)
     {
